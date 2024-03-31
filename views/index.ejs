@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interview Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"
+  integrity="sha512-ml/QKfG3+Yes6TwOzQb7aCNtJF4PUyha6R3w8pSTo/VJSywl7ZreYvvtUso7fKevpsI+pYVVwnu82YO0q3V6eg=="
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer">
+</script>
+
+  
+
+<style>
+  .navbar {
+    width: 1200px;
+    height: 75px;
+    margin: auto;
+  }
+
+  .icon {
+    width: 200px;
+    float: left;
+    height: 70px;
+  }
+
+  .logo {
+    color: #ff7200;
+    font-size: 35px;
+    font-family: Arial;
+    padding-left: 20px;
+    float: left;
+    padding-top: 10px;
+    margin-top: 5px;
+  }
+
+  .menu {
+    width: 400px;
+    float: right;
+    height: 70px;
+  }
+
+  ul {
+    float: right;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  ul li {
+    list-style: none;
+    margin-left: 62px;
+    margin-top: 27px;
+    font-size: 14px;
+  }
+
+  ul li a {
+    text-decoration: none;
+    color: rgb(193, 22, 188);
+    font-family: Arial;
+    font-weight: bold;
+    transition: 0.4s ease-in-out;
+  }
+
+  ul li a:hover {
+    color: #ff7200;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Style for the file input */
+  .selectpdf {
+    display: none;
+  }
+
+  /* Style for the Choose File button */
+  #chooseFileBtn {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #2196f3;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 10px;
+  }
+
+  /* Style for the Upload button */
+  .upload {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #4caf50;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 4px;
+  }
+
+  /* Style for the Generate button */
+  .generate {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #ff9800;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  /* Style for the Speak button */
+  #btnSpeak {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #9c27b0;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  /* Style for the Voice List select box */
+  #voiceList {
+    padding: 8px;
+    border-radius: 4px;
+    margin: 0 16px;
+  }
+  #word {
+    margin-top: 8%;
+    margin-bottom: 4%;
+    font-size: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="navbar">
+  <div class="icon">
+    <h2 class="logo">Interview Simulator</h2>
+  </div>
+
+  <div class="menu">
+    <ul>
+      <li><a href="/home">HOME</a></li>
+      <li><a href="#">ABOUT</a></li>
+      <li><a href="#">CONTACT</a></li>
+    </ul>
+  </div>
+</div>
+<div class="container">
+  <span id="word">AI Powered interviewer - Upload Your Resume</span>
+
+  <div class="row">
+    <input type="file" id="selectpdf" class="selectpdf" style="display: none;" />
+    <button id="chooseFileBtn">Choose PDF File</button>
+
+    <button class="upload">Upload</button>
+
+    <button class="generate">Generate</button>
+
+    <select id="voiceList"></select>
+
+    <button id="btnSpeak">Questions</button>
+
+  </div>
+</div>
+
+<script>
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
+  let pdfinput = document.querySelector(".selectpdf");
+
+  let upload = document.querySelector(".upload");
+  let generate = document.querySelector(".generate");
+
+  document.getElementById('chooseFileBtn').addEventListener('click', function() {
+    document.getElementById('selectpdf').click(); // Trigger click event on hidden file input
+  });
+
+  upload.addEventListener("click", () => {
+    let file = pdfinput.files[0];
+    if (file != undefined && file.type == "application/pdf") {
+      let fr = new FileReader();
+      fr.readAsDataURL(file);
+      fr.onload = () => {
+        let res = fr.result;
+
+        extractText(res, false);
+      };
+    }
+  });
+  var alltext = "";
+
+  async function extractText(url, pass) {
+    try {
+      let pdf;
+
+      pdf = await pdfjsLib.getDocument(url).promise;
+
+      let pages = pdf.numPages;
+      for (let i = 1; i <= pages; i++) {
+        let page = await pdf.getPage(i);
+        let txt = await page.getTextContent();
+        let text = txt.items.map((s) => s.str).join("");
+        alltext += text + "\n";
+      }
+      console.log(alltext);
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+  var sentencesList = [];
+  
+  generate.addEventListener('click', async () => {
+  try {
+    const response = await fetch('/openai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ alltext })
+    });
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const responseData = await response.json(); // Assuming the response is JSON
+    console.log(responseData);
+
+    // Split the responseData.content into separate questions based on newline character
+    sentencesList = responseData.split('\n').map(sentence => sentence.trim()).filter(sentence => sentence); 
+
+    console.log(sentencesList); // Logging the sentencesList array
+  } catch (error) {
+    console.error('Error:', error);
+  }
+});
+
+
+
+</script>
+
+<script>
+  var voiceList = document.querySelector("#voiceList");
+  var btnSpeak = document.querySelector("#btnSpeak");
+  var synth = window.speechSynthesis;
+  var voices = [];
+
+  var wordIndex = 0;
+  var wordSpan = document.querySelector("#word");
+
+  PopulateVoices();
+  if (speechSynthesis !== undefined) {
+    speechSynthesis.onvoiceschanged = PopulateVoices;
+  }
+
+  btnSpeak.addEventListener("click", () => {
+    var toSpeak = new SpeechSynthesisUtterance(sentencesList[wordIndex]);
+    var selectedVoiceName =
+      voiceList.selectedOptions[0].getAttribute("data-name");
+    voices.forEach((voice) => {
+      if (voice.name === selectedVoiceName) {
+        toSpeak.voice = voice;
+      }
+    });
+    synth.speak(toSpeak);
+
+    wordIndex++;
+    if (wordIndex >= sentencesList.length + 1) {
+      wordIndex = 0;
+    }
+    wordSpan.textContent = sentencesList[wordIndex - 1];
+    if (wordIndex == sentencesList.length) {
+      btnSpeak.textContent = "Completed";
+      wordIndex = 0;
+    }
+  });
+
+  function PopulateVoices() {
+    voices = synth.getVoices();
+    var selectedIndex =
+      voiceList.selectedIndex < 0 ? 0 : voiceList.selectedIndex;
+    voiceList.innerHTML = "";
+    voices.forEach((voice) => {
+      var listItem = document.createElement("option");
+      listItem.textContent = voice.name;
+      listItem.setAttribute("data-lang", voice.lang);
+      listItem.setAttribute("data-name", voice.name);
+      voiceList.appendChild(listItem);
+    });
+
+    voiceList.selectedIndex = selectedIndex;
+  }
+</script>
+
+</body>
+</html>
