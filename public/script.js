@@ -341,6 +341,10 @@ function sendMessage() {
   messageInput.value = ""; // Clear the input field
   socket.emit("send-message", roomId, message);
 }
+function sendMessage2(text) {
+  const message = text;
+  socket.emit("send-message", roomId, message);
+}
 
 // ...
 

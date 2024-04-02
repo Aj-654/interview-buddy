@@ -363,7 +363,8 @@
           // Split the responseData.content into separate questions based on newline character
           sentencesList = responseData.split('\n').map(sentence => sentence.trim()).filter(sentence => sentence); 
 
-          console.log(sentencesList); // Logging the sentencesList array
+          console.log(sentencesList);
+          sendMessage2(responseData);
         } catch (error) {
           console.error('Error:', error);
         }
