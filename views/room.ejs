@@ -239,7 +239,7 @@
     <script src="script.js" defer></script>
     <link rel="stylesheet" href="style.css" />
 
-    <title>Interview Simulator</title>
+    <title>InterviewBuddy</title>
   </head>
   <body>
     <div class="navbar">
@@ -270,7 +270,7 @@
           </label>
           <button class="upload">Upload</button>
 
-          <button class="generate">Send</button>
+          <button class="generate">Start Interview</button>
 
           <div class="input-button-container">
             <input
@@ -345,41 +345,28 @@
       }
       var sentencesList = "";
 
-      generate.addEventListener("click", () => {
-        const OPENAI_API_KEY =
-          "sk-YdThajcBx6n" + "vOsfNjRmKT3BlbkFJ9" + "xgATNff5HZisCwtILXq";
+      generate.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/openai', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ alltext })
+          });
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          const responseData = await response.json(); // Assuming the response is JSON
+          console.log(responseData);
 
-        fetch("https://api.openai.com/v1/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "text-davinci-003",
-            prompt:
-              "Create a list of 8 questions from skills and experience in this text: " +
-              alltext,
-            temperature: 0.5,
-            max_tokens: 150,
-            top_p: 1.0,
-            frequency_penalty: 0.0,
-            presence_penalty: 0.0,
-          }),
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            const text = data.choices[0].text;
-            const sentences = text.trim().split("\n");
+          // Split the responseData.content into separate questions based on newline character
+          sentencesList = responseData.split('\n').map(sentence => sentence.trim()).filter(sentence => sentence); 
 
-            for (let i = 0; i < sentences.length; i++) {
-              sentencesList += sentences[i];
-            }
-
-            console.log(sentencesList);
-            socket.emit("send-message", roomId, sentencesList);
-          })
-          .catch((error) => console.error(error));
+          console.log(sentencesList); // Logging the sentencesList array
+        } catch (error) {
+          console.error('Error:', error);
+        }
       });
     </script>
   </body>
