@@ -171,7 +171,16 @@
 
     <button id="btnSpeak">Questions</button>
 
+    
+
+        <!-- Container to display recorded answer -->
+    
+
   </div>
+  <button id="toggleMicrophone" class="btnn">Toggle Microphone</button>
+  <div id="recordedAnswerContainer"></div>
+  <button id="report" class="btnn">Generate Report</button>
+  <div id="completereport"></div>
 </div>
 
 <script>
@@ -245,11 +254,79 @@
   }
 });
 
+const toggleMicrophoneButton = document.getElementById('toggleMicrophone');
+const recordedAnswerContainer = document.getElementById('recordedAnswerContainer');
+
+let isRecording = false;
+let mediaRecorder;
+let chunks = [];
+
+toggleMicrophoneButton.addEventListener('click', async () => {
+    if (!isRecording) {
+        isRecording = true;
+        toggleMicrophoneButton.innerText = 'Stop Recording';
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.addEventListener('dataavailable', (event) => {
+                chunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener('stop', async () => {
+                const blob = new Blob(chunks, { type: 'audio/wav' });
+                console.log(blob);
+                const formData = new FormData();
+                formData.append('audio', blob, 'audio.wav');
+                console.log(formData.get('audio'));
+                console.log(formData);
+                // Send recorded audio to the server
+                try {
+                    const response = await fetch('/process_audio', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const responseData = await response.json();
+                        console.log('Server response:', responseData);
+                        // Display server response as needed
+                        recordedAnswerContainer.innerText = JSON.stringify(responseData);
+                    } else {
+                        console.error('Server response was not ok');
+                    }
+                } catch (error) {
+                    console.error('Error sending recorded audio:', error);
+                }
+                
+                // Reset variables
+                isRecording = false;
+                toggleMicrophoneButton.innerText = 'Start Recording';
+                chunks = [];
+            });
+
+            // Start recording
+            mediaRecorder.start();
+        } catch (error) {
+            console.error('Error recording:', error);
+            isRecording = false;
+            toggleMicrophoneButton.innerText = 'Start Recording';
+        }
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        toggleMicrophoneButton.innerText = 'Start Recording';
+    }
+});
+
+
 
 
 </script>
 
 <script>
+  let questionAnswerPairs = [];
   var voiceList = document.querySelector("#voiceList");
   var btnSpeak = document.querySelector("#btnSpeak");
   var synth = window.speechSynthesis;
@@ -264,6 +341,10 @@
   }
 
   btnSpeak.addEventListener("click", () => {
+    const recordedAnswerContainer = document.getElementById('recordedAnswerContainer');
+    const question = sentencesList[wordIndex];
+    const answer = recordedAnswerContainer.innerText;
+    questionAnswerPairs.push({ question, answer });
     var toSpeak = new SpeechSynthesisUtterance(sentencesList[wordIndex]);
     var selectedVoiceName =
       voiceList.selectedOptions[0].getAttribute("data-name");
@@ -275,14 +356,19 @@
     synth.speak(toSpeak);
 
     wordIndex++;
-    if (wordIndex >= sentencesList.length + 1) {
+    if (wordIndex >= sentencesList.length + 2) {
       wordIndex = 0;
     }
     wordSpan.textContent = sentencesList[wordIndex - 1];
-    if (wordIndex == sentencesList.length) {
+    if (wordIndex == sentencesList.length+1) {
       btnSpeak.textContent = "Completed";
       wordIndex = 0;
+      questionAnswerPairs.forEach(pair => {
+        console.log(`Question: ${pair.question}`);
+        console.log(`Answer: ${pair.answer}`);
+    });
     }
+    recordedAnswerContainer.innerText = '';
   });
 
   function PopulateVoices() {
@@ -300,6 +386,28 @@
 
     voiceList.selectedIndex = selectedIndex;
   }
+  reportcontent = document.getElementById('completereport');
+  report.addEventListener('click', async () => {
+  try {
+    const response = await fetch('/question_ans', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ questionAnswerPairs })
+    });
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const responseData = await response.json(); // Assuming the response is JSON
+    console.log(responseData);
+    reportcontent.innerHTML = responseData
+
+  } catch (error) {
+    console.error('Error:', error);
+  }
+});
+
 </script>
 
 </body>

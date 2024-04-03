@@ -2,9 +2,20 @@ const express = require("express");
 const bodyParser = require('body-parser');
 const app = express();
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
-const myapi = require("./myapi");
+const { myapi, myapi2 } = require('./myapi');
+
+const fs = require('fs');
+const { promisify } = require('util');
+const { SpeechClient } = require('@google-cloud/speech').v1p1beta1;
+const fetch = require('node-fetch');
+const multer = require('multer');
+const upload = multer();
+require('dotenv').config();
+const OpenAI = require('openai').OpenAI;
+const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
 
 
@@ -26,6 +37,57 @@ app.post("/openai", async (req, res) => { // Change to POST method since you're 
     res.json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+app.post("/question_ans", async (req, res) => { // Change to POST method since you're sending data
+  try {
+    const questionAnswerPairs = req.body.questionAnswerPairs; // Extract alltext from the request body
+    console.log("openai route")
+    const response = await myapi2(questionAnswerPairs); // Pass alltext to myapi function
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// Endpoint to process the audio URL
+app.post('/process_audio', upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      throw new Error('Audio data is missing in the request');
+    }
+
+    // Or log specific properties of interest
+    console.log('File:', req.file); // Log uploaded file
+    console.log('Body:', req.body);
+
+    const audioBuffer = req.file.buffer; // Get the audio data buffer from req.file
+    console.log(audioBuffer);
+    const audioFilePath = `${__dirname}/audios/uploads/audio.wav`; // Define the file path
+    try {
+      await fs.promises.writeFile(audioFilePath, audioBuffer); // Write the file using fs.promises.writeFile()
+      console.log('Audio file saved successfully:', audioFilePath);
+    } catch (writeError) {
+      console.error('Error saving audio file:', writeError);
+      throw new Error('Error saving audio file');
+    }
+
+    // Convert audio data to text using OpenAI Whisper API
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream("./audios/uploads/audio.wav"),
+      model: 'whisper-1', // Use Whisper model for speech recognition
+      response_format: "text",
+    });
+    console.log(transcription);
+    // Extract transcription from response
+    
+
+    // Send the text transcription back to the client
+    res.json(transcription);
+  } catch (error) {
+    console.error('Error processing audio:', error);
+    res.status(500).json({ error: 'Error processing audio' });
   }
 });
 const rooms = [
