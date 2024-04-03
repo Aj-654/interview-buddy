@@ -185,6 +185,26 @@ function addVideoStream(video, stream) {
   }
 }
 
+const emotionPrintButton = document.getElementById("emotionPrintButton");
+const generateReportButton = document.getElementById("generateReportButton");
+let isPrintingEnabled = false;
+function togglePrinting() {
+  isPrintingEnabled = !isPrintingEnabled;
+  if (isPrintingEnabled) {
+    emotionPrintButton.innerText = "Stop Record";
+    generateReportButton.style.display = "none";
+  } else {
+    emotionPrintButton.innerText = "Start Record";
+    generateReportButton.style.display = "block";
+  }
+}
+let lastDominantEmotion = null;
+let topEmotions=[];
+emotionPrintButton.addEventListener("click", () => {
+  togglePrinting(); // Toggle printing when the button is clicked
+});
+const topEmotionsContainer = document.getElementById("top3emotions");
+
 function startVideo(video, canvas, context) {
   Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
@@ -197,6 +217,36 @@ function startVideo(video, canvas, context) {
         .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceExpressions();
+
+        if (detections.length>0){
+          // emotions.length = 0;
+          // let lastDominantEmotion = null;
+          // const uniqueEmotions = new Set();
+          detections.forEach((detection) => {
+            const expressions = detection.expressions;
+            const dominantExpression = Object.keys(expressions).reduce(
+              (dominant, expression) => (expressions[dominant] < expressions[expression] ? expression : dominant),
+              Object.keys(expressions)[0]
+            );
+            if (dominantExpression !== lastDominantEmotion) {
+              // emotions.push(dominantExpression); // Add unique emotion
+              // console.log("Dominant Emotion (Unique this second):", dominantExpression);
+              lastDominantEmotion = dominantExpression; // Update last dominant
+            }
+            
+  
+            // if (!uniqueEmotions.has(dominantExpression)) {
+            //   uniqueEmotions.add(dominantExpression);
+            //   console.log("Dominant Emotion:", dominantExpression);
+            // }
+        });
+        // if (isPrintingEnabled) {
+        //   // Print the last dominant emotion if printing is enabled
+        //   console.log("Last Dominant Emotion (Unique this second):", lastDominantEmotion);
+        // }
+        // storeEmotionsToMongoDB(lastDominantEmotion);
+      
+        }
 
       resizeCanvas(video); // Resize the canvas based on the video element
 
@@ -248,8 +298,38 @@ function startVideo(video, canvas, context) {
         faceapi.draw.drawFaceExpressions(canvas, [resizedDetection]);
       });
     }, 100);
+
+    setInterval(() => {
+      if (lastDominantEmotion !== null && isPrintingEnabled) {
+        const emotionFrequency = {};
+        emotionFrequency[lastDominantEmotion] = (emotionFrequency[lastDominantEmotion] || 0) + 1;
+      
+
+      // Sort the emotions by frequency in descending order
+      const sortedEmotions = Object.keys(emotionFrequency).sort(
+        (a, b) => emotionFrequency[b] - emotionFrequency[a]
+      );
+
+      // Get the top 3 emotions
+      topEmotions = sortedEmotions.slice(0, 3);
+
+      console.log("Top 3 Dominant Emotions:", topEmotions);
+    
+      }
+  },2000);
   });
 }
+generateReportButton.addEventListener("click", () => {
+  // Logic to display top 3 emotions as 1, 2, and 3
+  if(topEmotions.length>0){
+  topEmotionsContainer.innerHTML = `
+      <p> Your dominant emotion is :${topEmotions[0]}</p>
+      
+    `; // Or display the emotions in your desired format
+  }else{
+    topEmotionsContainer.innerHTML="No dominant expressions detected yet"
+  }
+});
 
 function resizeCanvas(video) {
   const { canvas, context } = canvasMap.get(video);
