@@ -43,7 +43,11 @@ app.post("/question_ans", async (req, res) => { // Change to POST method since y
   try {
     const questionAnswerPairs = req.body.questionAnswerPairs; // Extract alltext from the request body
     console.log("openai route")
-    const response = await myapi2(questionAnswerPairs); // Pass alltext to myapi function
+    let finalPrompt = "";
+    questionAnswerPairs.forEach((pair, index) => {
+      finalPrompt += `${index + 1}. ${pair.question}\n${pair.answer}\n\n`;
+    });
+    const response = await myapi2(finalPrompt); // Pass alltext to myapi function
     res.json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
